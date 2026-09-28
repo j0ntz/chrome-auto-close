@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auto Close Tabs settings</title>
+    <link rel="stylesheet" href="ui.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Auto Close Tabs</h1>
+      <p class="muted">
+        A tab that opens on a URL matching an enabled rule closes after a delay: the default delay, unless the rule
+        sets its own. In a pattern, <code>*</code> matches anything; a host starting with <code>*.</code> also matches
+        the bare domain.
+      </p>
+
+      <section class="general">
+        <label class="toggle"><input id="enabled" type="checkbox" /> Enabled</label>
+        <label class="toggle">
+          <input id="onlyNewTabs" type="checkbox" />
+          Only close tabs that open on a matching URL (leave tabs I navigate to by hand alone)
+        </label>
+        <label class="delay">
+          Default delay
+          <input id="defaultDelay" type="number" min="1" max="3600" aria-label="Default delay in seconds" />
+          s
+        </label>
+      </section>
+
+      <section>
+        <h2>Rules</h2>
+        <div id="rules"></div>
+        <button id="addRule">Add rule</button>
+      </section>
+
+      <section>
+        <h2>Test a URL</h2>
+        <input id="testUrl" type="text" placeholder="https://example.slack.com/archives/C123/p456" />
+        <p id="testResult" class="muted"></p>
+      </section>
+
+      <footer>
+        <button id="save" class="primary">Save</button>
+        <button id="reset">Reset to defaults</button>
+        <span id="saveStatus" class="muted" role="status"></span>
+      </footer>
+    </main>
+
+    <template id="ruleTemplate">
+      <div class="rule">
+        <div class="rule-head">
+          <label class="toggle"><input class="rule-enabled" type="checkbox" /> On</label>
+          <input class="rule-name" type="text" aria-label="Rule name" placeholder="Name" />
+          <div class="delay">
+            Close after
+            <select class="rule-delay-mode" aria-label="Delay">
+              <option value="default">Default</option>
+              <option value="custom">Custom</option>
+            </select>
+            <span class="rule-delay-custom">
+              <input class="rule-delay" type="number" min="1" max="3600" aria-label="Delay in seconds" />
+              s
+            </span>
+          </div>
+          <button class="rule-delete danger" aria-label="Delete rule">Delete</button>
+        </div>
+        <textarea class="rule-patterns" rows="2" aria-label="URL patterns, one per line"></textarea>
+      </div>
+    </template>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

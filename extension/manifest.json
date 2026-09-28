@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Close Tabs",
+  "version": "1.0.0",
+  "description": "Closes the tabs left behind when Slack, Zoom, Asana, Discord or Teams links hand off to the desktop app.",
+  "minimum_chrome_version": "116",
+  "permissions": ["alarms", "storage", "tabs", "webNavigation"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Auto Close Tabs",
+    "default_popup": "popup.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

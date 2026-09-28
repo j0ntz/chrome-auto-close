@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Auto Close Tabs</title>
+    <link rel="stylesheet" href="ui.css" />
+    <style>
+      body {
+        width: 280px;
+        padding: 14px;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 10px;
+      }
+      #status {
+        margin: 0 0 10px;
+      }
+      #keep {
+        width: 100%;
+        margin-bottom: 12px;
+      }
+      footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid var(--border);
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Auto Close Tabs</h1>
+    <p id="status" class="muted">Checking this tab...</p>
+    <button id="keep" class="primary" hidden>Keep this tab open</button>
+    <footer>
+      <label class="toggle"><input id="enabled" type="checkbox" /> Enabled</label>
+      <a id="options" href="#">Edit rules</a>
+    </footer>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
