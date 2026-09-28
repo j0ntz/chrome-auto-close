@@ -9,6 +9,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "e2e": "node scripts/e2e.mjs",
+    "launch": "node scripts/launch.mjs"
   }
 }
