@@ -6,7 +6,7 @@
 // backstop next to its in-memory timer.
 
 import { createdTabState, planNavigation, planSettingsChange, secondsLeft, UNKNOWN_TAB_STATE } from './plan.js'
-import { DEFAULT_SETTINGS, normalizeSettings } from './rules.js'
+import { DEFAULT_SETTINGS, migrateRules, normalizeSettings } from './rules.js'
 
 const ALARM_PREFIX = 'close:'
 const BADGE_COLOR = '#b3261e'
@@ -65,10 +65,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 run(reconcile)
 
-/** Writes the default rules unless sync already carries this user's settings. */
+/**
+ * Writes the default rules unless sync already carries this user's settings,
+ * in which case unedited default rules move to the current default patterns.
+ */
 async function installDefaults() {
   const stored = await chrome.storage.sync.get(null)
-  if (stored.rules == null) await chrome.storage.sync.set(DEFAULT_SETTINGS)
+  if (stored.rules == null) {
+    await chrome.storage.sync.set(DEFAULT_SETTINGS)
+    return
+  }
+  if (!Array.isArray(stored.rules)) return
+  const rules = migrateRules(stored.rules)
+  if (rules !== stored.rules) await chrome.storage.sync.set({ rules })
 }
 
 async function handleNavigation(tabId, url, kind, startUrl = url) {

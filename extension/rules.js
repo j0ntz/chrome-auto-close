@@ -26,7 +26,9 @@ export const DEFAULT_RULES = [
     name: 'Asana',
     enabled: true,
     delaySeconds: null,
-    patterns: ['https://app.asana.com/*']
+    // Task and project links only. Attachments (`/app/asana/-/get_asset`) and
+    // other Asana pages open in the browser on purpose.
+    patterns: ['https://app.asana.com/0/*', 'https://app.asana.com/1/*']
   },
   {
     id: 'discord',
@@ -43,6 +45,13 @@ export const DEFAULT_RULES = [
     patterns: ['https://teams.microsoft.com/l/*']
   }
 ]
+
+// Pattern lists earlier versions shipped for a default rule. A stored rule
+// still carrying one of these was never edited, so it moves to the current
+// default patterns on update.
+const RETIRED_DEFAULT_PATTERNS = {
+  asana: [['https://app.asana.com/*']]
+}
 
 export const DEFAULT_SETTINGS = {
   enabled: true,
@@ -127,6 +136,23 @@ export function normalizeRule(raw, index = 0) {
   }
 }
 
+/**
+ * Moves stored default rules the user never edited off pattern lists an
+ * earlier version shipped. Returns the same array when nothing changed.
+ */
+export function migrateRules(rules) {
+  let changed = false
+  const migrated = rules.map(rule => {
+    const retired = RETIRED_DEFAULT_PATTERNS[rule?.id]
+    const current = DEFAULT_RULES.find(defaultRule => defaultRule.id === rule?.id)
+    if (retired == null || current == null || !Array.isArray(rule.patterns)) return rule
+    if (!retired.some(patterns => samePatterns(patterns, rule.patterns))) return rule
+    changed = true
+    return { ...rule, patterns: [...current.patterns] }
+  })
+  return changed ? migrated : rules
+}
+
 /** The rule's own delay, or the global default when the rule has none. */
 export function ruleDelaySeconds(rule, settings) {
   return rule.delaySeconds ?? settings.defaultDelaySeconds
@@ -146,6 +172,10 @@ export function clampDelay(value) {
 
 export function cloneRules(rules) {
   return rules.map(rule => ({ ...rule, patterns: [...rule.patterns] }))
+}
+
+function samePatterns(a, b) {
+  return a.length === b.length && a.every((pattern, index) => pattern === b[index])
 }
 
 function findHostEnd(pattern, hostStart) {

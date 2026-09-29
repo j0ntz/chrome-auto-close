@@ -25,11 +25,11 @@ To try it without touching your own profile, `npm run launch` opens a separate C
 |---|---|
 | Slack | `https://*.slack.com/archives/*`, `https://*.slack.com/app_redirect*` |
 | Zoom | `https://*.zoom.us/j/*`, `https://*.zoom.us/s/*`, `https://*.zoom.us/my/*` |
-| Asana | `https://app.asana.com/*` |
+| Asana | `https://app.asana.com/0/*`, `https://app.asana.com/1/*` |
 | Discord | `https://discord.com/channels/*`, `https://discord.com/invite/*`, `https://discord.gg/*` |
 | Microsoft Teams | `https://teams.microsoft.com/l/*` |
 
-Web-app pages such as `app.slack.com/client` or `app.zoom.us/wc` are left out on purpose. Edit, disable or add rules from the extension's options page; settings sync through your Chrome account.
+Web-app pages such as `app.slack.com/client` or `app.zoom.us/wc`, and Asana attachments (`app.asana.com/app/asana/-/get_asset`), are left out on purpose. Updating from 1.0.0 moves an Asana rule you never edited off the old `https://app.asana.com/*` pattern. Edit, disable or add rules from the extension's options page; settings sync through your Chrome account.
 
 ## Delays
 

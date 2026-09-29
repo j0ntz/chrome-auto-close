@@ -7,6 +7,7 @@ import {
   DEFAULT_RULES,
   findMatchingRule,
   matchesPattern,
+  migrateRules,
   normalizeSettings,
   ruleDelaySeconds
 } from '../extension/rules.js'
@@ -52,6 +53,7 @@ describe('default rules', () => {
     ['https://us02web.zoom.us/j/123456789?pwd=abc', 'Zoom'],
     ['https://zoom.us/j/123456789', 'Zoom'],
     ['https://app.asana.com/0/1215088146871429/1218950707685619', 'Asana'],
+    ['https://app.asana.com/1/9976422036640/project/1215088146871429/task/1218950707685619', 'Asana'],
     ['https://discord.com/channels/1/2', 'Discord'],
     ['https://discord.gg/abc', 'Discord'],
     ['https://teams.microsoft.com/l/meetup-join/19%3ameeting', 'Microsoft Teams']
@@ -71,6 +73,37 @@ describe('default rules', () => {
     ]) {
       assert.equal(findMatchingRule(url, DEFAULT_RULES), undefined, url)
     }
+  })
+
+  it('leaves Asana attachments and other non-link pages alone', () => {
+    for (const url of [
+      'https://app.asana.com/',
+      'https://app.asana.com/app/asana/-/get_asset?asset_id=1218951101523532',
+      'https://asanausercontent.com/us1/assets/9976422036640/1218951101523530/3088c0df?e=1790719358',
+      'https://app.asana.com/-/login',
+      'https://app.asana.com/api/1.0/tasks/1'
+    ]) {
+      assert.equal(findMatchingRule(url, DEFAULT_RULES), undefined, url)
+    }
+  })
+})
+
+describe('migrateRules', () => {
+  const asana = DEFAULT_RULES.find(rule => rule.id === 'asana')
+
+  it('moves an unedited Asana rule off the retired catch-all pattern', () => {
+    const stored = [{ ...asana, delaySeconds: 9, patterns: ['https://app.asana.com/*'] }]
+    const [migrated] = migrateRules(stored)
+    assert.deepEqual(migrated, { ...asana, delaySeconds: 9 })
+  })
+
+  it('leaves edited and custom rules as they are', () => {
+    const stored = [
+      { ...asana, patterns: ['https://app.asana.com/*', 'https://asana.example/*'] },
+      { id: 'rule-3', name: 'Mine', enabled: true, delaySeconds: null, patterns: ['https://app.asana.com/*'] },
+      ...DEFAULT_RULES
+    ]
+    assert.equal(migrateRules(stored), stored)
   })
 })
 
