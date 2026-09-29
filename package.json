@@ -1,6 +1,6 @@
 {
   "name": "chrome-auto-close",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Chrome extension that auto-closes leftover desktop-app hand-off tabs",
   "type": "module",

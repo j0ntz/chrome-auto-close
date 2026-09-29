@@ -1,8 +1,9 @@
 // End-to-end check: installs the extension into a scratch Chrome profile and
 // drives real tabs through the DevTools protocol.
 //
-// Slack URLs are answered locally through Fetch interception, so the test uses
-// the real default rules and the real Slack URL shape without network access.
+// Slack and Asana URLs are answered locally through Fetch interception, so the
+// test uses the real default rules and the real URL shapes without network
+// access.
 // Everything else is served from a local HTTP server.
 //
 // Usage: node scripts/e2e.mjs [--headed]
@@ -17,6 +18,9 @@ import path from 'node:path'
 import { attachServiceWorker, delay, evaluate, launchWithExtension } from './chrome.mjs'
 
 const SLACK_URL = 'https://edgesecure.slack.com/archives/C0808NMRU93/p1790596658215339'
+const ASANA_TASK_URL = 'https://app.asana.com/0/1215088146871429/1218950707685619'
+const ASANA_LINKED_TASK_URL = 'https://app.asana.com/0/1215088146871429/1218950707685620'
+const ASANA_ATTACHMENT_URL = 'https://app.asana.com/app/asana/-/get_asset?asset_id=1218951101523532'
 const SLACK_DELAY_MS = 5_000
 const CLOSE_SLACK_MS = 5_000
 
@@ -30,7 +34,7 @@ const extraArgs = process.env.CI != null ? ['--no-sandbox'] : []
 const { cdp, extensionId, child } = await launchWithExtension({ userDataDir, headless, extraArgs })
 const results = []
 try {
-  await interceptSlack(cdp)
+  await interceptApps(cdp)
   const workerEval = await attachServiceWorker(cdp, extensionId)
   await waitFor('default rules installed', async () => {
     const stored = await workerEval('chrome.storage.sync.get(null)')
@@ -68,6 +72,14 @@ try {
   const popupSource = await newTab(`${localUrl}/links`)
   const popupTarget = await waitForNewTarget(() => clickLink(popupSource, '#new-tab'))
 
+  // An Asana task link from another app closes; an attachment does not, and
+  // neither does a task the Asana web app opens in a new tab.
+  const asanaTab = await newTab(ASANA_TASK_URL)
+  const attachmentTab = await newTab(ASANA_ATTACHMENT_URL)
+  // Chrome makes the active tab the opener of a new tab, as for a real click.
+  await cdp.send('Target.activateTarget', { targetId: asanaTab })
+  const asanaLinkedTab = await waitForNewTarget(() => clickLink(asanaTab, '#asana-new-tab'))
+
   // Keep one of the matching tabs through the popup's message API.
   const keptTabId = await tabIdOf(keptTab)
   const popup = await newTab(`chrome-extension://${extensionId}/popup.html`)
@@ -85,7 +97,12 @@ try {
   await waitFor('new-tab link closes', async () => !(await isOpen(popupTarget)), SLACK_DELAY_MS + CLOSE_SLACK_MS)
   record('matching link opened in a new tab closes', true)
 
+  await waitFor('Asana task tab closes', async () => !(await isOpen(asanaTab)), SLACK_DELAY_MS + CLOSE_SLACK_MS)
+  record('Asana task link opened from another app closes', true)
+
   record('non-matching tab stays open', await isOpen(otherTab))
+  record('Asana attachment opened in a new tab stays open', await isOpen(attachmentTab))
+  record('Asana task opened from an Asana tab stays open', await isOpen(asanaLinkedTab))
   record('matching URL typed into a new tab page stays open', await isOpen(typedTab))
   record('matching link followed inside an open tab stays open', await isOpen(linkTab))
   record('tab kept from the popup stays open', await isOpen(keptTab))
@@ -169,25 +186,37 @@ async function waitFor(label, check, timeoutMs = 10_000) {
 }
 
 /**
- * Answers *.slack.com requests locally, the way Slack answers a logged-out
- * browser: the archive link 302s to `/?redir=...`, which serves a page.
+ * Answers Slack and Asana requests locally. A logged-out Slack archive link
+ * 302s to `/?redir=...`; an Asana attachment link 302s to asanausercontent.com,
+ * and an Asana task page links to another task in a new tab.
  * Fetch on the browser target sees every tab's requests from the first one.
  */
-async function interceptSlack(connection) {
+async function interceptApps(connection) {
   connection.onEvent(message => {
     if (message.method !== 'Fetch.requestPaused') return
     const { requestId, request } = message.params
-    const { pathname, search } = new URL(request.url)
-    const response = pathname.startsWith('/archives/')
-      ? { responseCode: 302, responseHeaders: [{ name: 'Location', value: `/?redir=${encodeURIComponent(pathname + search)}` }] }
-      : {
-          responseCode: 200,
-          responseHeaders: [{ name: 'Content-Type', value: 'text/html' }],
-          body: Buffer.from('<!doctype html><title>Slack stub</title><p>Opening Slack...</p>').toString('base64')
-        }
-    connection.send('Fetch.fulfillRequest', { requestId, ...response }).catch(() => {})
+    connection.send('Fetch.fulfillRequest', { requestId, ...stubResponse(new URL(request.url)) }).catch(() => {})
   })
-  await connection.send('Fetch.enable', { patterns: [{ urlPattern: 'https://*.slack.com/*' }] })
+  await connection.send('Fetch.enable', {
+    patterns: [{ urlPattern: 'https://*.slack.com/*' }, { urlPattern: 'https://app.asana.com/*' }, { urlPattern: 'https://asanausercontent.com/*' }]
+  })
+}
+
+function stubResponse({ host, pathname, search }) {
+  const redirect = location => ({ responseCode: 302, responseHeaders: [{ name: 'Location', value: location }] })
+  const page = html => ({
+    responseCode: 200,
+    responseHeaders: [{ name: 'Content-Type', value: 'text/html' }],
+    body: Buffer.from(`<!doctype html>${html}`).toString('base64')
+  })
+  if (host.endsWith('slack.com')) {
+    if (pathname.startsWith('/archives/')) return redirect(`/?redir=${encodeURIComponent(pathname + search)}`)
+    return page('<title>Slack stub</title><p>Opening Slack...</p>')
+  }
+  if (host === 'asanausercontent.com') return page('<title>Attachment stub</title><p>Attachment</p>')
+  if (pathname === '/app/asana/-/get_asset') return redirect('https://asanausercontent.com/us1/assets/9976422036640/1218951101523530/3088c0df')
+  return page(`<title>Asana stub</title>
+    <a id="asana-new-tab" href="${ASANA_LINKED_TASK_URL}" target="_blank" rel="noopener noreferrer">Task</a>`)
 }
 
 function startServer() {
