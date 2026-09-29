@@ -6,7 +6,7 @@
 // backstop next to its in-memory timer.
 
 import { createdTabState, planNavigation, planSettingsChange, secondsLeft, UNKNOWN_TAB_STATE } from './plan.js'
-import { DEFAULT_SETTINGS, normalizeSettings } from './rules.js'
+import { DEFAULT_SETTINGS, migrateRules, normalizeSettings } from './rules.js'
 
 const ALARM_PREFIX = 'close:'
 const BADGE_COLOR = '#b3261e'
@@ -25,7 +25,8 @@ chrome.runtime.onInstalled.addListener(() => run(installDefaults))
 chrome.runtime.onStartup.addListener(() => run(reconcile))
 chrome.tabs.onCreated.addListener(tab => {
   run(async () => {
-    await setTabState(tab.id, createdTabState(tab.pendingUrl ?? tab.url))
+    const opener = tab.openerTabId == null ? undefined : await getTab(tab.openerTabId)
+    await setTabState(tab.id, createdTabState(tab.pendingUrl ?? tab.url, opener?.url))
   })
 })
 chrome.tabs.onRemoved.addListener(tabId => run(() => forgetTab(tabId)))
@@ -37,7 +38,7 @@ chrome.webNavigation.onCommitted.addListener(details => {
   const kind = details.transitionQualifiers.includes('client_redirect') ? 'client-redirect' : 'commit'
   const startUrl = startUrls.get(details.tabId) ?? details.url
   startUrls.delete(details.tabId)
-  run(() => handleNavigation(details.tabId, details.url, kind, startUrl))
+  run(() => handleNavigation(details.tabId, details.url, kind, startUrl, details.transitionType))
 })
 chrome.webNavigation.onHistoryStateUpdated.addListener(details => {
   if (!isMainFrame(details)) return
@@ -65,16 +66,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 run(reconcile)
 
-/** Writes the default rules unless sync already carries this user's settings. */
+/**
+ * Writes the default rules unless sync already carries this user's settings,
+ * in which case unedited default rules move to the current default patterns.
+ */
 async function installDefaults() {
   const stored = await chrome.storage.sync.get(null)
-  if (stored.rules == null) await chrome.storage.sync.set(DEFAULT_SETTINGS)
+  if (stored.rules == null) {
+    await chrome.storage.sync.set(DEFAULT_SETTINGS)
+    return
+  }
+  if (!Array.isArray(stored.rules)) return
+  const rules = migrateRules(stored.rules)
+  if (rules !== stored.rules) await chrome.storage.sync.set({ rules })
 }
 
-async function handleNavigation(tabId, url, kind, startUrl = url) {
+async function handleNavigation(tabId, url, kind, startUrl = url, transitionType) {
   const states = await loadTabStates()
   const tabState = states[tabId] ?? UNKNOWN_TAB_STATE
-  const plan = planNavigation({ settings: await loadSettings(), tabState, url, startUrl, kind, now: Date.now() })
+  const plan = planNavigation({ settings: await loadSettings(), tabState, url, startUrl, kind, transitionType, now: Date.now() })
   await setTabState(tabId, plan.tabState)
   if (plan.action === 'schedule') armClose(tabId, plan.tabState.pending)
   if (plan.action === 'cancel') disarmClose(tabId)

@@ -15,7 +15,9 @@ To try it without touching your own profile, `npm run launch` opens a separate C
 ## Behavior
 
 - A tab closes only when it **opened** on a matching URL: a link opened in a new tab or window, from another app, or through a redirect chain (mail link wrappers, Slack's logged-out `/?redir=` hop). Redirects and in-page route changes after that do not cancel the close.
-- A URL you type into a new tab, or a link you follow inside a tab you are already using, never triggers a close. Turn off **Only close tabs that open on a matching URL** in the settings to close those too.
+- A URL you type into a new tab, or a link you follow inside a tab you are already using, never triggers a close.
+- To close those too, turn off **Only close tabs that open on a matching URL** in the settings.
+- A link that opens another page of the same site in a new tab (the Asana web app opening a task) never triggers a close.
 - Navigating the tab to a page that no longer matches cancels the close.
 - While a close is pending, the toolbar badge counts down the seconds. The popup shows the status and has a **Keep this tab open** button, plus a switch that turns the extension off.
 
@@ -25,11 +27,11 @@ To try it without touching your own profile, `npm run launch` opens a separate C
 |---|---|
 | Slack | `https://*.slack.com/archives/*`, `https://*.slack.com/app_redirect*` |
 | Zoom | `https://*.zoom.us/j/*`, `https://*.zoom.us/s/*`, `https://*.zoom.us/my/*` |
-| Asana | `https://app.asana.com/*` |
+| Asana | `https://app.asana.com/0/*`, `https://app.asana.com/1/*` |
 | Discord | `https://discord.com/channels/*`, `https://discord.com/invite/*`, `https://discord.gg/*` |
 | Microsoft Teams | `https://teams.microsoft.com/l/*` |
 
-Web-app pages such as `app.slack.com/client` or `app.zoom.us/wc` are left out on purpose. Edit, disable or add rules from the extension's options page; settings sync through your Chrome account.
+Web-app pages such as `app.slack.com/client` or `app.zoom.us/wc`, and Asana attachments (`app.asana.com/app/asana/-/get_asset`), are left out on purpose. Updating from 1.0.0 moves an Asana rule you never edited off the old `https://app.asana.com/*` pattern. Edit, disable or add rules from the extension's options page; settings sync through your Chrome account.
 
 ## Delays
 
